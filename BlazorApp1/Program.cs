@@ -49,6 +49,4 @@ app.MapRazorComponents<App>()
 
 app.MapControllers();
 
-app.Urls.Add("http://0.0.0.0:5215");
-
 app.Run();
