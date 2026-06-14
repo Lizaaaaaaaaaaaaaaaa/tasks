@@ -1,0 +1,453 @@
+﻿@page "/users"
+@rendermode InteractiveServer
+
+@using BlazorApp1.Models
+@using BlazorApp1.Data
+@using BlazorApp1.Services
+@using Microsoft.EntityFrameworkCore
+@using System.Security.Cryptography
+@using System.Text
+
+@inject AppDbContext _context
+@inject AuthService authService
+@inject NavigationManager nav
+<style>
+    .users-page {
+        min-height: 100vh;
+        background: #f5f5f5;
+        color: #1f1f1f;
+        padding: 30px;
+    }
+
+    .users-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+
+    .page-title {
+        font-size: 30px;
+        font-weight: 700;
+        color: #1f1f1f;
+    }
+
+    .sidebar-btn {
+        padding: 12px 18px;
+        border: none;
+        border-radius: 10px;
+        background: #7b4dff;
+        color: white;
+        cursor: pointer;
+        font-size: 15px;
+        transition: .2s;
+    }
+
+        .sidebar-btn:hover {
+            opacity: .9;
+        }
+
+    .content-grid {
+        display: grid;
+        grid-template-columns: 400px 1fr;
+        gap: 20px;
+    }
+
+    .card-box {
+        background: white;
+        border-radius: 16px;
+        padding: 22px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .section-title {
+        font-size: 22px;
+        font-weight: 600;
+        margin-bottom: 18px;
+        color: #1f1f1f;
+    }
+
+    .input-label {
+        display: block;
+        margin-bottom: 8px;
+        color: #555;
+        font-size: 14px;
+    }
+
+    .dark-input {
+        width: 100%;
+        background: #f9f9f9;
+        color: #1f1f1f;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+        padding: 12px;
+        margin-bottom: 16px;
+        box-sizing: border-box;
+        font-size: 15px;
+    }
+
+        .dark-input:focus {
+            outline: 2px solid #7b4dff;
+            border-color: transparent;
+        }
+
+    .table-wrapper {
+        overflow-x: auto;
+    }
+
+    .users-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+        .users-table th {
+            text-align: left;
+            padding: 16px;
+            background: #e8e8e8;
+            color: #1f1f1f;
+            font-weight: 600;
+        }
+
+        .users-table td {
+            padding: 16px;
+            border-bottom: 1px solid #e0e0e0;
+            background: white;
+            color: #1f1f1f;
+        }
+
+    .action-buttons {
+        display: flex;
+        gap: 10px;
+    }
+
+    .edit-btn {
+        background: #7b4dff;
+        border: none;
+        color: white;
+        padding: 8px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+
+    .delete-btn {
+        background: crimson;
+        border: none;
+        color: white;
+        padding: 8px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+    }
+
+    .save-btn {
+        width: 100%;
+        padding: 12px;
+        border: none;
+        border-radius: 10px;
+        background: #7b4dff;
+        color: white;
+        cursor: pointer;
+        font-size: 15px;
+    }
+
+        .save-btn:hover {
+            opacity: .9;
+        }
+</style>
+
+<div class="users-page">
+
+    <div class="users-header">
+
+        <div class="page-title">
+            Пользователи
+        </div>
+
+        <button class="sidebar-btn"
+                @onclick="Logout">
+            Выйти
+        </button>
+
+    </div>
+
+    <div class="content-grid">
+
+        <!-- ДОБАВЛЕНИЕ -->
+        <div class="card-box">
+
+            <div class="section-title">
+                Добавить пользователя
+            </div>
+
+            <EditForm Model="newUser"
+                      OnValidSubmit="AddUser">
+
+                <DataAnnotationsValidator />
+
+                <label class="input-label">
+                    Email
+                </label>
+
+                <InputText class="dark-input"
+                           @bind-Value="newUser.Email" />
+
+                <label class="input-label">
+                    Имя
+                </label>
+
+                <InputText class="dark-input"
+                           @bind-Value="newUser.NameU" />
+
+                <label class="input-label">
+                    Пароль
+                </label>
+
+                <InputText class="dark-input"
+                           @bind-Value="newUser.Password"
+                           type="password" />
+
+                <button type="submit"
+                        class="save-btn">
+                    Добавить пользователя
+                </button>
+
+            </EditForm>
+
+            @if (isEditing)
+            {
+                <hr />
+
+                <div class="section-title">
+                    Редактирование
+                </div>
+
+                <EditForm Model="selectedUser"
+                          OnValidSubmit="UpdateUser">
+
+                    <InputText class="dark-input"
+                               @bind-Value="selectedUser.Email" />
+
+                    <InputText class="dark-input"
+                               @bind-Value="selectedUser.NameU" />
+
+                    <label class="input-label">
+                        Новый пароль
+                    </label>
+
+                    <InputText class="dark-input"
+                               @bind-Value="newPassword"
+                               type="password"
+                               placeholder="Оставьте пустым если не менять" />
+
+                    <button type="submit"
+                            class="save-btn">
+                        Сохранить
+                    </button>
+
+                </EditForm>
+            }
+
+        </div>
+
+        <!-- СПИСОК -->
+        <div class="card-box">
+
+            <div class="section-title">
+                Список пользователей
+            </div>
+
+            <div class="table-wrapper">
+
+                <table class="users-table">
+
+                    <thead>
+                        <tr>
+                            <th>Email</th>
+                            <th>Имя</th>
+                            <th>Пароль</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        @foreach (var u in users)
+                        {
+                            <tr>
+                                <td>@u.Email</td>
+                                <td>@u.NameU</td>
+                                <td>********</td>
+
+                                <td>
+
+                                    <div class="action-buttons">
+
+                                        <button class="edit-btn"
+                                                @onclick="() => EditUser(u)">
+                                            Изменить
+                                        </button>
+
+                                        <button class="delete-btn"
+                                                @onclick="() => DeleteUser(u.idU)">
+                                            Удалить
+                                        </button>
+
+                                    </div>
+
+                                </td>
+                            </tr>
+                        }
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+@code {
+
+    List<User> users = new();
+
+    User newUser = new();
+    User selectedUser = new();
+
+    bool isEditing = false;
+    bool isLoaded = false;
+
+    string newPassword = "";
+
+    User? currentUser;
+
+    // Загружаем после рендера
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            currentUser = await authService.GetUserAsync();
+
+            if (currentUser == null)
+            {
+                nav.NavigateTo("/login", true);
+                return;
+            }
+
+            if (currentUser.Role != "Admin")
+            {
+                nav.NavigateTo("/tasks", true);
+                return;
+            }
+
+            users = await _context.Users.ToListAsync();
+
+            isLoaded = true;
+
+            StateHasChanged();
+        }
+    }
+
+    // SHA1 хеширование
+    private string HashPassword(string password)
+    {
+        using (var sha1 = System.Security.Cryptography.SHA1.Create())
+        {
+            var bytes =
+                System.Text.Encoding.UTF8.GetBytes(password);
+
+            var hash =
+                sha1.ComputeHash(bytes);
+
+            return Convert.ToHexString(hash)
+                .ToLower();
+        }
+    }
+
+    async Task AddUser()
+    {
+        newUser.Password =
+            HashPassword(newUser.Password ?? "");
+
+        _context.Users.Add(newUser);
+
+        await _context.SaveChangesAsync();
+
+        users = await _context.Users.ToListAsync();
+
+        newUser = new User();
+    }
+
+    void EditUser(User u)
+    {
+        selectedUser = new User
+            {
+                idU = u.idU,
+                Email = u.Email,
+                NameU = u.NameU,
+                Role = u.Role,
+                Password = ""
+            };
+
+        newPassword = "";
+
+        isEditing = true;
+    }
+
+    async Task UpdateUser()
+    {
+        var userInDb =
+            await _context.Users.FindAsync(selectedUser.idU);
+
+        if (userInDb == null)
+            return;
+
+        userInDb.Email =
+            selectedUser.Email;
+
+        userInDb.NameU =
+            selectedUser.NameU;
+
+        userInDb.Role =
+            selectedUser.Role;
+
+        // Только если ввели новый пароль
+        if (!string.IsNullOrWhiteSpace(newPassword))
+        {
+            userInDb.Password =
+                HashPassword(newPassword);
+        }
+
+        await _context.SaveChangesAsync();
+
+        users =
+            await _context.Users.ToListAsync();
+
+        isEditing = false;
+    }
+
+    async Task DeleteUser(int id)
+    {
+        var user =
+            await _context.Users.FindAsync(id);
+
+        if (user != null)
+        {
+            _context.Users.Remove(user);
+
+            await _context.SaveChangesAsync();
+
+            users =
+                await _context.Users.ToListAsync();
+        }
+    }
+
+    async Task Logout()
+    {
+        await authService.Logout();
+
+        nav.NavigateTo("/login", true);
+    }
+}

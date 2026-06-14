@@ -1,0 +1,23 @@
+﻿@page "/"
+@inject NavigationManager nav
+@using BlazorApp1.Services
+@inject AuthService authService
+
+@rendermode InteractiveServer
+
+<h3>Загрузка...</h3>
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var user = await authService.GetUserAsync();
+
+            if (user == null)
+                nav.NavigateTo("/login");
+            else
+                nav.NavigateTo("/users");
+        }
+    }
+}

@@ -1,0 +1,70 @@
+﻿@using BlazorApp1.Models
+
+<div class="task-card"
+     @onclick="OpenTask">
+
+    <div class="task-title">
+        @Task.Title
+    </div>
+
+    <div class="task-desc">
+        @Task.Description
+    </div>
+
+    <div class="task-footer">
+        👤 @AssigneeName
+        <br />
+        📅 @Task.CreatedAtT?.ToString("dd.MM.yyyy HH:mm")
+        <br />
+
+        @if (Task.DueDate != null)
+        {
+            <span style="@GetDeadlineStyle()">
+                ⏳ @Task.DueDate?.ToString("dd.MM.yyyy")
+            </span>
+        }
+    </div>
+
+</div>
+
+@code {
+
+    [Parameter]
+    public WorkTask Task { get; set; } = default!;
+
+    [Parameter]
+    public string AssigneeName { get; set; } = "";
+
+    [Parameter]
+    public EventCallback<WorkTask> OnClick { get; set; }
+    private string GetDeadlineStyle()
+    {
+        if (Task.DueDate == null)
+            return "";
+
+        var daysLeft =
+            (Task.DueDate.Value.Date - DateTime.Now.Date).Days;
+
+        if (daysLeft < 0)
+        {
+            return "color:red;font-weight:bold;";
+        }
+
+        if (daysLeft <= 3)
+        {
+            return "color:orange;font-weight:bold;";
+        }
+
+        if (daysLeft <= 7)
+        {
+            return "color:gold;font-weight:bold;";
+        }
+
+        return "color:lightgreen;font-weight:bold;";
+    }
+
+    private async Task OpenTask()
+    {
+        await OnClick.InvokeAsync(Task);
+    }
+}

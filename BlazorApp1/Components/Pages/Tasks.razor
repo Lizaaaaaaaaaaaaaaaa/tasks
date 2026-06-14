@@ -1,0 +1,1544 @@
+﻿@page "/tasks"
+@rendermode InteractiveServer
+
+@using BlazorApp1.Models
+@using BlazorApp1.Data
+@using BlazorApp1.Services
+@using Microsoft.EntityFrameworkCore
+@using BlazorApp1.Components.Tasks
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+
+@inject AppDbContext _context
+@inject AuthService authService
+@inject NavigationManager nav
+@inject IJSRuntime JS
+@inject IWebHostEnvironment env
+
+<style>
+    .dark-date {
+        width: 100%;
+        background: white;
+        color: #1f2937;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        padding: 10px;
+        font-weight: 500;
+    }
+
+        .dark-date input {
+            background: white !important;
+            color: #1f2937 !important;
+            font-weight: 500;
+        }
+
+    .sidebar-btn {
+        width: 100%;
+        padding: 12px;
+        border: none;
+        border-radius: 10px;
+        background: #7b4dff;
+        color: white;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 12px;
+        transition: .2s;
+    }
+
+        .sidebar-btn:hover {
+            opacity: .9;
+        }
+
+    .kanban-wrapper {
+        background: #f4f6fb;
+        color: #1f2937;
+        font-weight: 500;
+    }
+
+    .sidebar {
+        background: #ffffff;
+        border-right: 1px solid #e5e7eb;
+    }
+
+    .department-item {
+        background: #eef2f7;
+        color: #1f2937;
+        font-weight: 500;
+    }
+
+        .department-item:hover {
+            background: #dbe3ef;
+        }
+
+    .board {
+        display: flex;
+        gap: 20px;
+        padding: 20px;
+        flex: 1;
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .column {
+        flex: 1 1 0;
+        min-width: 450px;
+        background: #eef2f7;
+        border-radius: 12px;
+        padding: 15px;
+    }
+
+    .column-title {
+        font-size: 22px;
+        font-weight: 700;
+        margin-bottom: 15px;
+        color: #1f2937;
+    }
+
+    .add-task {
+        margin-top: 20px;
+        background: #ffffff;
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid #e5e7eb;
+    }
+
+    input, select {
+        width: 100%;
+        margin-bottom: 10px;
+        padding: 8px;
+        border-radius: 6px;
+        background: white;
+        color: #1f2937;
+        border: 1px solid #d1d5db;
+        font-weight: 500;
+    }
+
+    button {
+        padding: 8px 15px;
+        border: none;
+        border-radius: 6px;
+        background: #7b4dff;
+        color: white;
+        font-weight: 600;
+    }
+
+    .modal-bg {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 999;
+    }
+
+    .modal-window {
+        width: 780px;
+        max-height: 88vh;
+        overflow-y: auto;
+        background: #ffffff;
+        border-radius: 16px;
+        padding: 22px;
+        color: #1f2937;
+        box-shadow: 0 8px 40px rgba(0,0,0,.2);
+    }
+
+    .task-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+    }
+
+    .task-header {
+        border-bottom: 1px solid #e5e7eb;
+        padding-bottom: 12px;
+    }
+
+    .task-title-big {
+        font-size: 26px;
+        font-weight: 800;
+        margin-bottom: 8px;
+        color: #1f2937;
+    }
+
+    .task-description-box {
+        background: #f8fafc;
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+        padding: 16px;
+        color: #1f2937;
+        line-height: 1.5;
+        font-weight: 500;
+    }
+
+    .task-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+    }
+
+    .info-card {
+        background: #ffffff;
+        border-radius: 12px;
+        border: 1px solid #e5e7eb;
+        padding: 14px;
+    }
+
+    .info-title {
+        font-size: 12px;
+        text-transform: uppercase;
+        color: #6b7280;
+        margin-bottom: 8px;
+        letter-spacing: .5px;
+        font-weight: 600;
+    }
+
+    .info-value {
+        font-size: 16px;
+        font-weight: 700;
+        color: #1f2937;
+    }
+
+    .status-select {
+        width: 100%;
+        background: white;
+        color: #1f2937;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        padding: 10px;
+        font-weight: 500;
+    }
+
+    .file-box {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .file-link {
+        background: #f8fafc;
+        padding: 10px;
+        border-radius: 10px;
+        text-decoration: none;
+        color: #7b4dff;
+        border: 1px solid #e5e7eb;
+        font-weight: 500;
+    }
+
+    /* ===== УЛУЧШЕННЫЕ ЖИРНЫЕ КОММЕНТАРИИ ===== */
+    .comments-section {
+        background: #f8fafc;
+        border-radius: 14px;
+        padding: 16px;
+        border: 1px solid #e5e7eb;
+    }
+
+    .comments-box {
+        max-height: 250px;
+        overflow-y: auto;
+        margin-top: 10px;
+    }
+
+    .comment-item {
+        background: white;
+        padding: 12px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        border: 1px solid #e5e7eb;
+    }
+
+    .comment-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 6px;
+        color: #6b7280;
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .comment-text {
+        color: #1f2937;
+        margin-top: 6px;
+        line-height: 1.4;
+        font-weight: 500;
+    }
+
+    .comment-input {
+        width: 100%;
+        min-height: 80px;
+        background: white;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        padding: 12px;
+        color: #1f2937;
+        margin-top: 10px;
+        resize: vertical;
+        font-weight: 500;
+    }
+
+    .task-buttons {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    .close-btn {
+        background: #6b7280;
+        color: white;
+        font-weight: 600;
+    }
+
+    .delete-btn {
+        background: crimson;
+        color: white;
+        font-weight: 600;
+    }
+
+    .modal-title {
+        font-size: 28px;
+        font-weight: 800;
+        margin-bottom: 15px;
+        color: #1f2937;
+    }
+
+    .modal-section {
+        margin-bottom: 15px;
+        font-weight: 500;
+    }
+
+    .task-card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        color: #1f2937;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        transition: .2s;
+        font-weight: 500;
+    }
+
+        .task-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,.1);
+        }
+
+        .task-card:active {
+            cursor: grabbing;
+            opacity: .7;
+        }
+
+    /* ===== KAITEN ТЕМА С ЖИРНЫМ ТЕКСТОМ ===== */
+    .kaiten-modal {
+        width: 82vw;
+        height: 82vh;
+        max-width: 1400px;
+        background: #ffffff;
+        border-radius: 20px;
+        overflow: hidden;
+        display: flex;
+        color: #1f2937;
+        box-shadow: 0 20px 60px rgba(0,0,0,.2);
+    }
+
+    .kaiten-left {
+        background: #ffffff;
+        flex: 1;
+        padding: 24px;
+        overflow-y: auto;
+    }
+
+    .kaiten-right {
+        width: 380px;
+        border-left: 1px solid #e5e7eb;
+        background: #f8fafc;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .kaiten-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        margin-bottom: 30px;
+    }
+
+    .kaiten-title {
+        font-size: 34px;
+        font-weight: 800;
+        margin-bottom: 10px;
+        color: #1f2937;
+    }
+
+    .kaiten-badges {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .kaiten-badge {
+        background: #eef2f7;
+        border: 1px solid #e5e7eb;
+        padding: 8px 16px;
+        border-radius: 999px;
+        font-size: 14px;
+        color: #1f2937;
+        font-weight: 600;
+    }
+
+    .kaiten-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        margin-bottom: 22px;
+    }
+
+    .kaiten-card {
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+        border-radius: 14px;
+        padding: 16px 18px;
+    }
+
+    .kaiten-label {
+        color: #6b7280;
+        font-size: 12px;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+        font-weight: 700;
+    }
+
+    .kaiten-value {
+        font-size: 17px;
+        color: #1f2937;
+        font-weight: 700;
+    }
+
+    .kaiten-description {
+        background: #f8fafc;
+        color: #1f2937;
+        border-radius: 16px;
+        padding: 22px;
+        margin-bottom: 25px;
+        border: 1px solid #e5e7eb;
+        font-weight: 500;
+        line-height: 1.5;
+    }
+
+    .kaiten-files {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        padding: 20px;
+        margin-top: 20px;
+    }
+
+    .kaiten-file {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+        padding: 14px;
+        border-radius: 12px;
+        margin-top: 10px;
+        transition: .2s;
+        font-weight: 500;
+    }
+
+        .kaiten-file:hover {
+            background: #eef2f7;
+        }
+
+        .kaiten-file a {
+            color: #7b4dff;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+    /* Жирные комментарии в Kaiten */
+    .kaiten-comments-header {
+        padding: 20px;
+        border-bottom: 1px solid #e5e7eb;
+        font-size: 22px;
+        font-weight: 700;
+        color: #1f2937;
+        background: #f8fafc;
+    }
+
+    .kaiten-comments {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+    }
+
+    .kaiten-comment {
+        background: white;
+        border: 1px solid #e5e7eb;
+        color: #1f2937;
+        border-radius: 12px;
+        padding: 14px;
+        margin-bottom: 15px;
+    }
+
+    .kaiten-comment-user {
+        font-weight: 800;
+        margin-bottom: 6px;
+        color: #1f2937;
+        font-size: 15px;
+    }
+
+    .kaiten-comment-date {
+        color: #9ca3af;
+        font-size: 11px;
+        margin-bottom: 10px;
+        font-weight: 500;
+    }
+
+    .kaiten-comment-text {
+        color: #1f2937;
+        line-height: 1.4;
+        font-weight: 500;
+    }
+
+    .kaiten-comment-input {
+        border-top: 1px solid #e5e7eb;
+        padding: 18px;
+        background: white;
+    }
+
+    .kaiten-textarea {
+        width: 100%;
+        min-height: 90px;
+        border: 1px solid #d1d5db;
+        border-radius: 12px;
+        background: white;
+        color: #1f2937;
+        padding: 14px;
+        resize: none;
+        font-weight: 500;
+    }
+
+    .kaiten-btn-row {
+        display: flex;
+        gap: 12px;
+        margin-top: 14px;
+    }
+
+    .kaiten-btn {
+        border: none;
+        border-radius: 12px;
+        padding: 10px 20px;
+        cursor: pointer;
+        font-weight: 700;
+    }
+
+    .kaiten-save {
+        background: #7b4dff;
+        color: white;
+    }
+
+    .kaiten-close {
+        background: #6b7280;
+        color: white;
+    }
+
+    .kaiten-delete {
+        background: crimson;
+        color: white;
+    }
+
+    /* DEADLINE COLORS - жирные */
+    .deadline-green {
+        color: #10b981;
+        font-weight: 800;
+    }
+
+    .deadline-yellow {
+        color: #f59e0b;
+        font-weight: 800;
+    }
+
+    .deadline-red {
+        color: #ef4444;
+        font-weight: 800;
+    }
+
+    .deadline-overdue {
+        color: #dc2626;
+        font-weight: 800;
+    }
+
+    /* Дополнительные элементы */
+    h3, h4, h5 {
+        font-weight: 700;
+    }
+
+    p, span, div {
+        font-weight: 500;
+    }
+
+    label {
+        font-weight: 600;
+        color: #1f2937;
+    }
+</style>
+
+
+
+@if (!isLoaded)
+{
+    <p>Загрузка...</p>
+}
+else
+{
+    <div class="kanban-wrapper">
+
+        <!-- LEFT MENU -->
+        <div class="sidebar">
+
+            <h3>Отделы</h3>
+
+            @foreach (var dept in departments)
+            {
+                <div class="department-item"
+                     @onclick="() => SelectDepartment(dept.idD)">
+
+                    @dept.Name
+
+                </div>
+            }
+
+            <hr />
+
+            <p>
+                Пользователь:
+                <b>@currentUser?.NameU</b>
+            </p>
+
+            <p>
+                Роль:
+                <b>@currentUser?.Role</b>
+            </p>
+
+            <button class="sidebar-btn"
+                    @onclick="Logout">
+
+                Выйти
+
+            </button>
+
+            @if (currentUser?.Role == "Admin")
+            {
+                <button class="sidebar-btn"
+                        @onclick='() => nav.NavigateTo("/users")'>
+
+                    Пользователи
+
+                </button>
+            }
+
+            @if (currentUser?.Role == "Admin"
+           || currentUser?.Role == "Manager")
+            {
+                <button class="sidebar-btn"
+                        @onclick="OpenCreateTask">
+
+                    ＋ Новая задача
+
+                </button>
+            }
+
+        </div>
+
+        <!-- BOARD -->
+        <div class="board">
+
+            @foreach (var status in statuses)
+            {
+                <div class="column">
+                    
+                    <div class="column-title">
+                        @status.NameTS
+                    </div>
+
+                    @foreach (var task in tasks
+                   .Where(t =>
+                   t.TaskStatus_idTS == status.idTS &&
+                   t.Departments_idD == selectedDepartmentId))
+                    {
+                                    <TaskCard Task="task"
+                      AssigneeName="@users.FirstOrDefault(u =>
+              u.idU == task.AssigneeId)?.NameU"
+                      OnClick="OpenTask" />
+                    }
+
+                </div>
+            }
+
+        </div>
+        @if (selectedTask != null)
+        {
+            <div class="modal-bg">
+
+                <div class="modal-window">
+
+                    <div class="task-layout">
+
+                        <!-- HEADER -->
+                        <div class="task-header">
+
+                            <div class="task-title-big">
+                                @selectedTask.Title
+                            </div>
+
+                            <div class="task-description-box">
+                                @(string.IsNullOrWhiteSpace(selectedTask.Description)
+                                    ? "Описание отсутствует"
+                                    : selectedTask.Description)
+                            </div>
+
+                        </div>
+
+                        <!-- 2 КОЛОНКИ -->
+                        <div class="task-grid">
+
+                            <!-- ЛЕВЫЙ СТОЛБЕЦ -->
+                            <div style="display:flex; flex-direction:column; gap:14px;">
+
+                                <div class="info-card">
+                                    <div class="info-title">
+                                        Исполнитель
+                                    </div>
+
+                                    <div class="info-value">
+                                        @users.FirstOrDefault(u =>
+                                                 u.idU == selectedTask.AssigneeId)?.NameU
+                                    </div>
+                                </div>
+
+                                <div class="info-card">
+                                    <div class="info-title">
+                                        Создал
+                                    </div>
+
+                                    <div class="info-value">
+                                        @users.FirstOrDefault(u =>
+                                                 u.idU == selectedTask.CreatedById)?.NameU
+                                    </div>
+                                </div>
+
+                                <div class="info-card">
+                                    <div class="info-title">
+                                        Дата создания
+                                    </div>
+
+                                    <div class="info-value">
+                                        @selectedTask.CreatedAtT?.ToString("dd.MM.yyyy HH:mm")
+                                    </div>
+
+                                </div>
+                                <div class="info-card">
+                                    <div class="info-title">
+                                        Срок выполнения
+                                    </div>
+
+                                    @if (currentUser?.Role == "Admin")
+                                    {
+                                        <InputDate class="dark-date"
+                                                   @bind-Value="selectedTask.DueDate" />
+
+                                        <button @onclick="SaveTask"
+                                                style="margin-top:10px;">
+                                            Сохранить
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <div class="info-value">
+                                            @selectedTask.DueDate?.ToString("dd.MM.yyyy")
+                                        </div>
+                                    }
+                                </div>
+
+                            </div>
+
+                            <!-- ПРАВЫЙ СТОЛБЕЦ -->
+                            <div style="display:flex; flex-direction:column; gap:14px;">
+                                
+
+
+
+                                <div class="info-card">
+                                    <div class="info-title">
+                                        Статус
+                                    </div>
+
+                                    @if (currentUser?.Role == "Admin"
+                                   || selectedTask.AssigneeId == currentUser?.idU)
+                                    {
+                                        <select class="status-select"
+                                                @onchange="(e) => ChangeStatus(selectedTask, e.Value?.ToString())">
+
+                                            @foreach (var s in statuses)
+                                            {
+                                                <option value="@s.idTS"
+                                                        selected="@(selectedTask.TaskStatus_idTS == s.idTS)">
+                                                    @s.NameTS
+                                                </option>
+                                            }
+
+                                        </select>
+                                    }
+                                    else
+                                    {
+                                        <div class="info-value">
+                                            @statuses.FirstOrDefault(s =>
+                                                     s.idTS == selectedTask.TaskStatus_idTS)?.NameTS
+                                        </div>
+                                    }
+                                </div>
+
+                                <div class="info-card">
+                                    <div class="info-title">
+                                        Приоритет
+                                    </div>
+
+                                    <div class="info-value">
+                                        @priorities.FirstOrDefault(p =>
+                                                 p.idTP == selectedTask.TaskPriority_idTP)?.NameTP
+                                    </div>
+                                </div>
+
+                                <div class="info-card">
+                                    <div class="info-title">
+                                        Файлы
+                                    </div>
+
+                                    <div class="file-box">
+
+                                        @if (currentUser?.Role == "Admin")
+                                        {
+                                            <InputFile OnChange="UploadFile" />
+                                        }
+
+                                        @foreach (var file in taskFiles
+                                       .Where(f => f.Tasks_idT == selectedTask.idT))
+                                        {
+                                            <a href="@file._FilePath"
+                                               target="_blank"
+                                               class="file-link">
+
+                                                📎 @file.FileName
+
+                                            </a>
+                                        }
+
+                                    </div>
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        <!-- КОММЕНТАРИИ -->
+                        <div class="comments-section">
+
+                            <h4 style="margin-bottom:14px;">
+                                Комментарии
+                            </h4>
+
+                            <div class="comments-box">
+
+                                @foreach (var c in comments
+                               .Where(c => c.Tasks_idT == selectedTask.idT))
+                                {
+                                    <div class="comment-item">
+
+                                        <div class="comment-header">
+
+                                            <b>
+                                                @users.FirstOrDefault(u =>
+                                                         u.idU == c.Users_idU)?.NameU
+                                            </b>
+
+                                            <span>
+                                                @c.CommentTC?.ToString("dd.MM.yyyy HH:mm")
+                                            </span>
+
+                                        </div>
+
+                                        <div>
+                                            @c.Comment
+                                        </div>
+
+                                    </div>
+                                }
+
+                            </div>
+
+                            <textarea class="comment-input"
+                                      @bind="newComment"
+                                      placeholder="Написать комментарий...">
+                            </textarea>
+
+                            <button @onclick="AddComment"
+                                    style="margin-top:10px;">
+                                Добавить комментарий
+                            </button>
+
+                        </div>
+
+                        <!-- КНОПКИ -->
+                        <div class="task-buttons">
+
+                            @if (currentUser?.Role == "Admin")
+                            {
+                                <button class="delete-btn"
+                                        @onclick="DeleteTask">
+
+                                    Удалить
+
+                                </button>
+                            }
+
+                            <button class="close-btn"
+                                    @onclick="CloseTask">
+
+                                Закрыть
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+        }
+        @if (showCreateModal)
+        {
+            <div class="modal-bg">
+
+                <div class="modal-window">
+
+                    <div class="modal-title">
+                        Новая задача
+                    </div>
+
+                    <EditForm Model="newTask"
+                              OnValidSubmit="AddTask">
+
+                        <div class="modal-section">
+
+                            <InputText @bind-Value="newTask.Title"
+                                       placeholder="Название" />
+
+                        </div>
+
+                        <div class="modal-section">
+
+                            <InputText @bind-Value="newTask.Description"
+                                       placeholder="Описание" />
+
+                        </div>
+
+                        <div class="modal-section">
+
+                            <b>Отдел:</b>
+
+                            @if (currentUser?.Role == "Admin")
+                            {
+                                <select @bind="selectedDepartmentForTask">
+
+                                    <option value="0">
+                                        Выберите отдел
+                                    </option>
+
+                                    @foreach (var dept in departments)
+                                    {
+                                        <option value="@dept.idD">
+                                            @dept.Name
+                                        </option>
+                                    }
+
+                                </select>
+                            }
+                            else if (currentUser?.Role == "Manager")
+                            {
+                                <div class="readonly-field">
+
+                                    @departments.FirstOrDefault(d =>
+                                             d.idD == currentUser?.Departments_idD)?.Name
+
+                                </div>
+                            }
+
+                        </div>
+
+                        <div class="modal-section">
+
+                            <b>Исполнитель:</b>
+
+                            <select @bind="newTask.AssigneeId"
+                                    disabled="@(selectedDepartmentForTask == 0)">
+
+                                <option value="0">
+                                    Выберите исполнителя
+                                </option>
+
+                                @foreach (var u in filteredUsers)
+                                {
+                                    <option value="@u.idU">
+                                        @u.NameU
+                                    </option>
+                                }
+
+                            </select>
+
+                        </div>
+
+                        <div class="modal-section">
+
+                            <b>Статус:</b>
+
+                            <select @bind="newTask.TaskStatus_idTS">
+
+                                @foreach (var s in statuses)
+                                {
+                                    <option value="@s.idTS">
+                                        @s.NameTS
+                                    </option>
+                                }
+
+                            </select>
+
+                        </div>
+
+                        <div class="modal-section">
+
+                            <b>Приоритет:</b>
+
+                            <select @bind="newTask.TaskPriority_idTP">
+
+                                @foreach (var p in priorities)
+                                {
+                                    <option value="@p.idTP">
+                                        @p.NameTP
+                                    </option>
+                                }
+
+                            </select>
+
+                        </div>
+
+                        <div class="modal-section">
+
+                            <b>Срок:</b>
+
+                            <InputDate @bind-Value="newTask.DueDate" />
+
+                        </div>
+
+                        <div class="modal-section">
+
+                            <b>Файл:</b>
+
+                            <InputFile OnChange="HandleFileSelected" />
+
+                        </div>
+
+                        <div style="display:flex; gap:10px;">
+
+                            <button type="submit">
+
+                                Создать
+
+                            </button>
+
+                            <button type="button"
+                                    class="close-btn"
+                                    @onclick="CloseCreateTask">
+
+                                Отмена
+
+                            </button>
+
+                        </div>
+
+                    </EditForm>
+
+                </div>
+
+            </div>
+        }
+
+    </div>
+}
+
+@code {
+
+    List<WorkTask> tasks = new();
+    List<WorkTask> allTasks = new();
+
+    List<WorkTaskStatus> statuses = new();
+    List<WorkTaskPriority> priorities = new();
+    List<TaskComment> comments = new();
+
+    string newComment = "";
+
+    List<User> users = new();
+    List<Department> departments = new();
+    List<User> filteredUsers =>
+    users.Where(u =>
+    u.Departments_idD == selectedDepartmentForTask
+    && u.Role == "User")
+    .ToList();
+
+    WorkTask newTask = new();
+    IBrowserFile? selectedFile;
+    WorkTask? selectedTask;
+    
+   
+
+    User? currentUser;
+
+    int selectedDepartmentId = 0;
+
+    int selectedDepartmentForTask = 0;
+
+    bool isLoaded = false; 
+    bool showCreateModal = false;
+    void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        selectedFile = e.File;
+    }
+
+    
+    
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            currentUser = await authService.GetUserAsync();
+
+            if (currentUser == null)
+            {
+                nav.NavigateTo("/login", true);
+                return;
+            }
+
+            departments =
+                await _context.Departments.ToListAsync();
+
+            statuses =
+                await _context.WorkTaskStatuses.ToListAsync();
+
+            priorities =
+                await _context.WorkTaskPriorities.ToListAsync();
+
+            users =
+                await _context.Users.ToListAsync();
+
+            allTasks =
+                await _context.WorkTasks.ToListAsync();
+
+            taskFiles =
+                await _context.TaskFiles.ToListAsync();
+
+            comments =
+                await _context.TaskComments.ToListAsync();
+
+            selectedDepartmentId =
+                currentUser.Departments_idD;
+
+            tasks = allTasks;
+
+            isLoaded = true;
+
+            StateHasChanged();
+        }
+    }
+    
+    void SelectDepartment(int departmentId)
+    {
+        selectedDepartmentId = departmentId;
+
+        tasks = allTasks
+            .Where(t => t.Departments_idD == selectedDepartmentId)
+            .ToList();
+    }
+    async Task OpenTask(WorkTask task)
+    {
+        selectedTask = task;
+
+        comments = await _context.TaskComments
+            .Where(c => c.Tasks_idT == task.idT)
+            .OrderBy(c => c.CommentTC)
+            .ToListAsync();
+    }
+
+    void CloseTask()
+    {
+        selectedTask = null;
+    }
+        
+    async Task AddTask()
+    {
+        if (currentUser?.Role != "Admin"
+    && currentUser?.Role != "Manager")
+        {
+            return;
+        }
+        if (currentUser == null)
+            return;
+
+        var assignee = await _context.Users
+            .FirstOrDefaultAsync(u => u.idU == newTask.AssigneeId);
+
+        if (assignee == null)
+            return;
+
+        newTask.Departments_idD =
+    selectedDepartmentForTask;
+
+        newTask.CreatedById = currentUser.idU;
+
+        newTask.CreatedAtT = DateTime.Now;
+
+        if (newTask.TaskStatus_idTS == 0)
+            newTask.TaskStatus_idTS = statuses.First().idTS;
+
+        if (newTask.TaskPriority_idTP == 0)
+            newTask.TaskPriority_idTP = priorities.First().idTP;
+
+        _context.WorkTasks.Add(newTask);
+
+        await _context.SaveChangesAsync();
+
+        if (selectedFile != null)
+        {
+            var uploadsFolder = Path.Combine(
+                env.WebRootPath,
+                "uploads"
+            );
+
+            if (!Directory.Exists(uploadsFolder))
+            {
+                Directory.CreateDirectory(uploadsFolder);
+            }
+
+            var uniqueFileName =
+                $"{Guid.NewGuid()}_{selectedFile.Name}";
+
+            var filePath = Path.Combine(
+                uploadsFolder,
+                uniqueFileName
+            );
+
+            await using var stream =
+                new FileStream(filePath, FileMode.Create);
+
+            await selectedFile
+                .OpenReadStream(20 * 1024 * 1024)
+                .CopyToAsync(stream);
+
+            var taskFile = new TaskFile
+                {
+                    FileName = selectedFile.Name,
+                    _FilePath = $"/uploads/{uniqueFileName}",
+                    UploadedAtTF = DateTime.Now,
+                    Tasks_idT = newTask.idT
+                };
+
+            _context.TaskFiles.Add(taskFile);
+
+            await _context.SaveChangesAsync();
+        }
+
+        allTasks = await _context.WorkTasks.ToListAsync();
+
+        tasks = allTasks
+            .Where(t => t.Departments_idD == selectedDepartmentId)
+            .ToList();
+
+        newTask = new WorkTask();
+
+        selectedFile = null;
+
+        showCreateModal = false;
+
+        StateHasChanged();
+    }
+
+    async Task ChangeStatus(WorkTask task, string? statusId)
+    {
+        if (int.TryParse(statusId, out int newStatus))
+        {
+            task.TaskStatus_idTS = newStatus;
+            
+            task.UpdatedAtT = DateTime.Now;
+
+            _context.WorkTasks.Update(task);
+
+            await _context.SaveChangesAsync();
+
+            allTasks = await _context.WorkTasks.ToListAsync();
+
+            tasks = allTasks
+                .Where(t => t.Departments_idD == selectedDepartmentId)
+                .ToList();
+        }
+    }
+    async Task SaveTask()
+    {
+        if (selectedTask != null)
+        {
+            _context.WorkTasks.Update(selectedTask);
+
+            await _context.SaveChangesAsync();
+
+            allTasks = await _context.WorkTasks.ToListAsync();
+
+            tasks = allTasks
+                .Where(t => t.Departments_idD == selectedDepartmentId)
+                .ToList();
+
+            StateHasChanged();
+        }
+    }
+    async Task AddComment()
+    {
+        if (selectedTask == null
+            || currentUser == null
+            || string.IsNullOrWhiteSpace(newComment))
+            return;
+
+        var comment = new TaskComment
+            {
+                Comment = newComment,
+                CommentTC = DateTime.Now,
+                Tasks_idT = selectedTask.idT,
+                Users_idU = currentUser.idU
+            };
+
+        _context.TaskComments.Add(comment);
+
+        await _context.SaveChangesAsync();
+
+        comments = await _context.TaskComments
+            .Where(c => c.Tasks_idT == selectedTask.idT)
+            .OrderBy(c => c.CommentTC)
+            .ToListAsync();
+
+        newComment = "";
+
+        StateHasChanged();
+    }
+    async Task UploadFile(InputFileChangeEventArgs e)
+    {
+        if (selectedTask == null)
+            return;
+
+        var file = e.File;
+
+        if (file == null)
+            return;
+
+        var uploadsFolder = Path.Combine(
+            env.WebRootPath,
+            "uploads"
+        );
+
+        if (!Directory.Exists(uploadsFolder))
+        {
+            Directory.CreateDirectory(uploadsFolder);
+        }
+
+        var uniqueFileName =
+            $"{Guid.NewGuid()}_{file.Name}";
+
+        var filePath = Path.Combine(
+            uploadsFolder,
+            uniqueFileName
+        );
+
+        await using var stream =
+            new FileStream(filePath, FileMode.Create);
+
+        await file.OpenReadStream(
+            20 * 1024 * 1024)
+            .CopyToAsync(stream);
+
+        var taskFile = new TaskFile
+            {
+                FileName = file.Name,
+                _FilePath = $"/uploads/{uniqueFileName}",
+                UploadedAtTF = DateTime.Now,
+                Tasks_idT = selectedTask.idT
+            };
+
+        _context.TaskFiles.Add(taskFile);
+
+        await _context.SaveChangesAsync();
+
+        taskFiles = await _context.TaskFiles
+            .ToListAsync();
+
+        StateHasChanged();
+    }
+    void OpenCreateTask()
+    {
+        newTask = new WorkTask();
+
+        selectedFile = null;
+
+        if (currentUser?.Role == "Manager")
+        {
+            selectedDepartmentForTask =
+                currentUser.Departments_idD;
+        }
+        else
+        {
+            selectedDepartmentForTask = 0;
+        }
+
+        showCreateModal = true;
+    }
+
+    void CloseCreateTask()
+    {
+        showCreateModal = false;
+    }
+    async Task DeleteTask()
+    {
+        if (currentUser?.Role != "Admin")
+            return;
+
+        if (selectedTask == null)
+            return;
+
+        var confirmed = await JS.InvokeAsync<bool>(
+            "confirm",
+            $"Удалить задачу '{selectedTask.Title}'?"
+        );
+
+        if (!confirmed)
+            return;
+
+        // удалить файлы задачи из БД
+        var files = await _context.TaskFiles
+            .Where(f => f.Tasks_idT == selectedTask.idT)
+            .ToListAsync();
+
+        _context.TaskFiles.RemoveRange(files);
+
+        var taskComments = await _context.TaskComments
+    .Where(c => c.Tasks_idT == selectedTask.idT)
+    .ToListAsync();
+
+        _context.TaskComments.RemoveRange(taskComments);
+
+        // удалить саму задачу
+        _context.WorkTasks.Remove(selectedTask);
+
+        await _context.SaveChangesAsync();
+
+        // обновить данные
+        allTasks = await _context.WorkTasks.ToListAsync();
+
+        taskFiles = await _context.TaskFiles.ToListAsync();
+
+        tasks = allTasks
+            .Where(t => t.Departments_idD == selectedDepartmentId)
+            .ToList();
+
+        selectedTask = null;
+
+        StateHasChanged();
+    }
+    async Task DeleteOldCompletedTasks()
+    {
+        var completedStatus = await _context.WorkTaskStatuses
+            .FirstOrDefaultAsync(s => s.NameTS == "Завершенные");
+
+        if (completedStatus == null)
+            return;
+
+        var oldTasks = await _context.WorkTasks
+            .Where(t =>
+                t.TaskStatus_idTS == completedStatus.idTS &&
+                t.UpdatedAtT != null &&
+                t.UpdatedAtT <= DateTime.Now.AddDays(-20))
+            .ToListAsync();
+
+        if (!oldTasks.Any())
+            return;
+
+        foreach (var task in oldTasks)
+        {
+            var files = await _context.TaskFiles
+                .Where(f => f.Tasks_idT == task.idT)
+                .ToListAsync();
+
+            _context.TaskFiles.RemoveRange(files);
+
+            var comments = await _context.TaskComments
+                .Where(c => c.Tasks_idT == task.idT)
+                .ToListAsync();
+
+            _context.TaskComments.RemoveRange(comments);
+        }
+
+        _context.WorkTasks.RemoveRange(oldTasks);
+
+        await _context.SaveChangesAsync();
+    }
+
+    async Task Logout()
+    {
+        await authService.Logout();
+
+        nav.NavigateTo("/login", true);
+    }
+
+    string GetDeadlineClass(WorkTask task)
+    {
+        // если срок не указан
+        if (task.DueDate == null)
+            return "";
+
+        // если задача завершена — не красим
+        var status = statuses.FirstOrDefault(s =>
+            s.idTS == task.TaskStatus_idTS);
+
+        if (status?.NameTS == "Завершенные")
+            return "deadline-green";
+
+        var daysLeft =
+            (task.DueDate.Value.Date -
+            DateTime.Now.Date).TotalDays;
+
+        if (daysLeft < 0)
+            return "deadline-overdue";
+
+        if (daysLeft <= 2)
+            return "deadline-red";
+
+        if (daysLeft <= 5)
+            return "deadline-yellow";
+
+        return "deadline-green";
+    }
+
+    List<TaskFile> taskFiles = new();
+    void GoToUsers()
+    {
+        nav.NavigateTo("/users");
+    }
+}
